@@ -1,84 +1,50 @@
 HC = require 'hardoncollider'
+_ = require 'underscore.underscore'
+require 'json.json'
 
--- setup stuff and hardcoded level...
-function copy(t)
-  local t2 = {}
-  for k,v in pairs(t) do
-    t2[k] = v
-  end
-  return t2
+function copy(orig)
+   local c = {}
+   _.extend(c, orig)
+   return c
 end
 
-level_1 = {
-   character = { x = 0, y = 100, xv = 0, yv = 0, width = 20, height = 40, state = "falling" },
-   end_door = { x = 360, y = 240, width = 30, height = 60 },
-   platforms = {
-      { x = 0, y = 300, width = 100, height = 100 },
-      { x = 140, y = 250, t = 0, movement = { startx = 140, starty = 250, endx = 260, endy = 250, t = 4 }, width = 50, height = 20,  },
-      { x = 300, y = 300, width = 100, height = 100 }
-   }
-}
-
-level_2 = {
-   character = { x = 0, y = 260, xv = 0, yv = 0, width = 20, height = 40, state = "falling" },
-   end_door = { x = 360, y = 240, width = 30, height = 60 },
-   platforms = {
-      { x = 0, y = 300, width = 100, height = 100 },
-      { x = 200, y=50, t = 0, movement = { startx = 200, starty = 50, endx = 200, endy = 350, t = 6 }, width = 50, height = 20,  },
-      { x = 300, y = 300, width = 100, height = 100 }
-   }
-}
-
-level_3 = {
-   character = { x = 40, y = 330, xv = 0, yv = 0, width = 20, height = 40, state = "falling" },
-   end_door = { x = 30, y = 90, width = 30, height = 60 },
-   platforms = {
-      { x = 30, y = 370, width = 100, height = 20 },
-      { x = 230, y = 370, width = 100, height = 20 },
-      { x = 430, y = 370, width = 100, height = 20 },
-      { x = 500, y = 290, width = 100, height = 20 },
-      { x = 30, y = 150, width = 100, height = 20 },
-      { x = 230, y = 150, width = 100, height = 20 },
-      { x = 430, y = 215, width = 100, height = 20 },
-
-   }
-}
+function collide_rect(rect)
+   rect.collider = collider:addRectangle(rect.x, rect.y, rect.width, rect.height)
+   if rect.angle then
+      rect.collider:rotate(rect.angle)
+   end
+end
 
 function load_level(level)
-   collider:clear()
+   collider = HC(100, on_collision, collision_stop)
 
    character = copy(level.character)
-   character.collider = collider:addRectangle(character.x, character.y, character.width, character.height)
+   collide_rect(character)
    
    end_door = copy(level.end_door)
-   end_door.collider = collider:addRectangle(end_door.x, end_door.y, end_door.width, end_door.height)
+   collide_rect(end_door)
 
-   platforms = {}
+   platforms = _.map(level.platforms, copy)
+   _.each(platforms, collide_rect)
   
-   for i,platform in ipairs(level.platforms) do
-      table.insert(platforms,(copy(platform)))
-   end
-
-   for i,platform in ipairs(platforms) do
-      platform.collider = collider:addRectangle(platform.x, platform.y, platform.width, platform.height)
-   end
-
-   -- Mainly because we can just clear out the collider...
-   playfield.collider = collider:addRectangle(0,0,playfield.width,playfield.height)
+   playfield = copy(level.playfield)
+   collide_rect(playfield)
+   playfield.screenx = love.graphics.getWidth() / 2 - playfield.width / 2
+   playfield.screeny = love.graphics.getHeight() / 2 - playfield.height / 2
 end
 
 function love.load()
-   collider = HC(100, on_collision, collision_stop)
-
    character_graphic = love.graphics.newImage('char.png')
-
-   levels = {level_1, level_2, level_3}
-
-   playfield = { width = 600, height = 400 }
-   playfield.screenx = 400 - playfield.width / 2
-   playfield.screeny = 300 - playfield.height / 2
+   
+   levels = parse_levels()
 
    game_state = "front"
+end
+
+function parse_levels()
+   local contents, length = love.filesystem.read("levels.json")
+
+   return json.decode(contents)
 end
 
 -- Game mechanics...
@@ -119,7 +85,8 @@ function on_collision(dt, shape_a, shape_b, mtv_x, mtv_y)
 	 end
 
 	 if math.abs(mtv_x) > 0 and math.abs(mtv_y) > 0 then
-	    print("Diagonal collision")
+--	    print("Diagonal collision")
+	    
 	 end
       end
    end
@@ -166,7 +133,7 @@ function love.update(delta)
    character.x = character.x + character.xv * delta
    character.collider:move(character.xv * delta, character.yv * delta)
 
-   for i,platform in ipairs(platforms) do
+   for platform in _.iter(platforms) do
       if platform.movement then
 	 platform.t = platform.t + delta
 
@@ -234,7 +201,7 @@ function love.keypressed(key, unicode)
       end
 
       if key == "r" then
-	 reset_character()
+	 load_level(levels[current_level])
 	 game_state = "running"
       end
    end
@@ -265,7 +232,6 @@ function love.keyreleased(key, unicode)
 end
 
 -- graphics
-
 function love.draw()
    if game_state == "running" or game_state == "ending" then
       draw_level()
@@ -283,26 +249,38 @@ function love.draw()
 end
 
 function show_text(text, height)
-      love.graphics.printf(text, playfield.screenx, playfield.screeny + height, playfield.width, "center")
+   love.graphics.printf(text, 0, 100 + height, love.graphics.getWidth(), "center")
 end
 
 function draw_character()
-   love.graphics.draw(character_graphic, playfield.screenx + character.x, playfield.screeny + character.y)
+   love.graphics.push()
+   love.graphics.translate(playfield.screenx + character.x + character.width / 2, playfield.screeny + character.y + character.height / 2)
+
+--   love.graphics.rotate(math.pi / 4)
+
+   love.graphics.draw(character_graphic, - character.width / 2, - character.height / 2)
+   love.graphics.pop()
 end
 
 function draw_level()
    love.graphics.setColor(50, 50, 200)
-   love.graphics.rectangle("fill", playfield.screenx, playfield.screeny, playfield.width, playfield.height)
+   draw_game_rect(playfield)
 
-   for i,platform in ipairs(platforms) do
-      love.graphics.setColor(40, 230, 100, 100)
-      draw_game_rect(platform)
-   end
+   love.graphics.setColor(40, 230, 100, 100)
+   _.each(platforms, draw_game_rect)
 
    love.graphics.setColor(230,230,230)
    draw_game_rect(end_door)
 end
 
 function draw_game_rect(r)
-   love.graphics.rectangle("fill", playfield.screenx + r.x, playfield.screeny + r.y, r.width, r.height)
+   love.graphics.push()
+   love.graphics.translate(playfield.screenx + r.x + r.width / 2, playfield.screeny + r.y + r.height / 2)
+
+   if r.angle then
+      love.graphics.rotate(r.angle)
+   end
+
+   love.graphics.rectangle("fill", - r.width / 2,  - r.height / 2, r.width, r.height)
+   love.graphics.pop()
 end
