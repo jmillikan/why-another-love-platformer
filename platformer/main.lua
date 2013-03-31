@@ -26,7 +26,7 @@ function load_level(level)
 
    platforms = _.map(level.platforms, copy)
    _.each(platforms, collide_rect)
-  
+   
    playfield = copy(level.playfield)
    collide_rect(playfield)
    playfield.screenx = love.graphics.getWidth() / 2 - playfield.width / 2
@@ -65,12 +65,20 @@ function on_collision(dt, shape_a, shape_b, mtv_x, mtv_y)
 
       else
 	 -- TODO: More better
-	 if math.abs(mtv_y) > 0 then
-	    character.x = character.x + mtv_x
-	    character.y = character.y + mtv_y
+	 if mtv_y ~= 0 then
+	    local dy
+	    if mtv_x ~= 0 then
+	       -- print("Angle collision")
+	       dy = mtv_y - mtv_x / math.atan2(mtv_y, mtv_x)
+	    else
+	       dy = mtv_y
+	    end
+	    
+	    --character.x = character.x + mtv_x
+	    character.y = character.y + dy
 	    character.yv = 0
 	    
-	    character.collider:move(mtv_x, mtv_y)
+	    character.collider:move(0, dy)
 	    
 	    -- prevents "clining" to platforms form the bottom...
 	    if character.jumping and mtv_y < 0 then
@@ -79,14 +87,9 @@ function on_collision(dt, shape_a, shape_b, mtv_x, mtv_y)
 	 elseif math.abs(mtv_x) > 0 then
 	    character.x = character.x + mtv_x
 	    character.y = character.y + mtv_y
-	    character.xv = 0
+	    --	    character.xv = 0
 
 	    character.collider:move(mtv_x, mtv_y)
-	 end
-
-	 if math.abs(mtv_x) > 0 and math.abs(mtv_y) > 0 then
---	    print("Diagonal collision")
-	    
 	 end
       end
    end
@@ -110,60 +113,64 @@ function love.update(delta)
    if game_state ~= "running" and game_state ~= "ending" then return end
 
    if game_state == "running" or game_state == "ending" then
-   if character.running_left then
-      character.xv = character.xv - 20
-   elseif character.running_right then
-      character.xv = character.xv + 20
-   elseif character.xv > 20 then
-      character.xv = character.xv - 20
-   elseif character.xv < -20 then
-      character.xv = character.xv + 20
-   else
-      character.xv = 0
-   end
-
-   if character.xv > 100 then
-      character.xv = 100
-   elseif character.xv < -100 then
-      character.xv = -100
-   end
-
-   character.yv = character.yv + delta * 500
-   character.y = character.y + character.yv * delta
-   character.x = character.x + character.xv * delta
-   character.collider:move(character.xv * delta, character.yv * delta)
-
-   for platform in _.iter(platforms) do
-      if platform.movement then
-	 platform.t = platform.t + delta
-
-	 local t = platform.t % platform.movement.t
-
-	 -- for some stupid reason I'm storing the total back-and-forth time...
-	 local segment_t = platform.movement.t / 2
-
-	 local ratio_done
-
-	 if t < segment_t then
-	    startx, starty = platform.movement.startx, platform.movement.starty
-	    endx, endy = platform.movement.endx, platform.movement.endy
-
-	    ratio_done = t / segment_t
-	 else
-	    startx, starty = platform.movement.endx, platform.movement.endy
-	    endx, endy = platform.movement.startx, platform.movement.starty
-
-	    ratio_done = (t - segment_t) / segment_t
-	 end
-
-	 platform.x = (startx * (1 - ratio_done) + endx * ratio_done)
-	 platform.y = (starty * (1 - ratio_done) + endy * ratio_done)
-
-	 update_rect_collider(platform)
+      if character.running_left then
+	 character.xv = character.xv - 20
+      elseif character.running_right then
+	 character.xv = character.xv + 20
+      elseif character.xv > 20 then
+	 character.xv = character.xv - 20
+      elseif character.xv < -20 then
+	 character.xv = character.xv + 20
+      else
+	 character.xv = 0
       end
-   end
 
-   collider:update(delta)
+      if character.xv > 100 then
+	 character.xv = 100
+      elseif character.xv < -100 then
+	 character.xv = -100
+      end
+
+
+      character.yv = character.yv + delta * 500
+      character.y = character.y + character.yv * delta
+      character.x = character.x + character.xv * delta
+      character.collider:move(character.xv * delta, character.yv * delta)
+
+      for platform in _.iter(platforms) do
+	 if platform.movement then
+	    platform.t = platform.t + delta
+
+	    local t = platform.t % platform.movement.t
+
+	    -- for some stupid reason I'm storing the total back-and-forth time...
+	    local segment_t = platform.movement.t / 2
+
+	    local ratio_done
+
+	    if t < segment_t then
+	       startx, starty = platform.movement.startx, platform.movement.starty
+	       endx, endy = platform.movement.endx, platform.movement.endy
+
+	       ratio_done = t / segment_t
+	    else
+	       startx, starty = platform.movement.endx, platform.movement.endy
+	       endx, endy = platform.movement.startx, platform.movement.starty
+
+	       ratio_done = (t - segment_t) / segment_t
+	    end
+
+	    platform.x = (startx * (1 - ratio_done) + endx * ratio_done)
+	    platform.y = (starty * (1 - ratio_done) + endy * ratio_done)
+
+	    update_rect_collider(platform)
+	 end
+      end
+
+      -- TODO: Collect collision events and resolve in a manner consistent with character movement to prevent platform penetration...
+      collider:update(delta)
+
+
    end
 
    if game_state == "ending" then
@@ -256,7 +263,7 @@ function draw_character()
    love.graphics.push()
    love.graphics.translate(playfield.screenx + character.x + character.width / 2, playfield.screeny + character.y + character.height / 2)
 
---   love.graphics.rotate(math.pi / 4)
+   --   love.graphics.rotate(math.pi / 4)
 
    love.graphics.draw(character_graphic, - character.width / 2, - character.height / 2)
    love.graphics.pop()
