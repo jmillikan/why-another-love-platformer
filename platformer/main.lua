@@ -8,18 +8,17 @@ _level_state - The current level state - character position, platform positions,
 _game_state - "front", "running", "ending", "won"
 _end_time - A countdown from "ending" to next state while showing level
 _levels - Array of loaded level tables
---]]
 
---[[
+Types:
+level state: The state of a level currently being played
+Functions: make_level_state, advance_level_state, draw_level_state, keypress_level_state, keyrelease_level_state
+Properties: .dead, .finished
+
 game rect (convention): A possibly angled game rectangle that can be drawn, can be moved, and causes collision handling
-Functions: load_game_rect, move_game_rect, place_game_rect, draw_game_rect
+functions: load_game_rect, move_game_rect, place_game_rect, draw_game_rect
+(Most game rects have some extra non-abstract properties used directly, and collision is a bit of a mess.)
 
 game rect graphics: One of { color: { r,g,b,a } }, { image: love.graphics image }, {}
-
-level state:
-   make_level_state, advance_level_state, draw_level_state
-   .dead, .finished
-   .character.running_left... (TODO: abstract these into keypressed_level_state etc.)
 --]]
 
 function love.load()
@@ -161,7 +160,6 @@ function keyrelease_level_state(ls, key)
 end
 
 -- Handle collisions wrt a level state
--- TODO: get _game_state and _level_state out, handle those by a new _game_state or something
 
 -- Take the x/y "shortest" correction given by HC, 
 -- and convert it into a pure vertical correction
@@ -176,7 +174,7 @@ function verticalize_correction(mtv_x,mtv_y)
    end
 end
 
--- Return a with same sign as b
+-- Return x with sign of sign
 function match_sign(x, sign)
    return sign >= 0 and math.abs(x) or -math.abs(x)
 end
