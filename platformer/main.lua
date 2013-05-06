@@ -124,6 +124,7 @@ function make_level_state(level)
    return _.extend(ls, 
 		   { 
 		      dead = false,
+		      finished = false,
 		      collider = collider,
 		      character = load_game_rect(level.character, collider, { image = love.graphics.newImage('char.png') }),
 		      end_door = load_game_rect(level.end_door, collider, { color = {255,255,255,255} }),
@@ -164,12 +165,13 @@ end
 -- Take the x/y "shortest" correction given by HC, 
 -- and convert it into a pure vertical correction
 -- This doesn't give the correct sign.
+-- Returns 0 if mtv_y is 0 to avoid infinite loop.
 function verticalize_correction(mtv_x,mtv_y)
-   if mtv_x ~= 0 then
-      -- print("- x movement (" .. mtv_x .. "): angle collision")
-      return mtv_y - mtv_x / math.atan2(mtv_y, mtv_x)
+   if mtv_y == 0 then
+      return 0
+   elseif mtv_x ~= 0 then
+      return mtv_y - mtv_x / math.atan2(mtv_y, mtv_x) 
    else
-      -- print("- no x movement: non-angle")
       return mtv_y
    end
 end
@@ -197,16 +199,20 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
       elseif shape_b == playfield.collider then
 
       else
-	 local dy = match_sign(verticalize_correction(mtv_x, mtv_y), mtv_y)
-	 
-	 move_game_rect(character, 0, dy)
-	 
-	 -- If attempting to jump on a downward collision (INCORRECT!) give jump velocity.
-	 -- TODO: foot collider
-	 if character.jumping and mtv_y < 0 then
-	    character.yv = -300
+	 if mtv_y == 0 then
+	    move_game_rect(character, mtv_x, 0)
 	 else
-	    character.yv = 0
+	    local dy = match_sign(verticalize_correction(mtv_x, mtv_y), mtv_y)
+	    
+	    move_game_rect(character, 0, dy)
+	    
+	    -- If attempting to jump on a downward collision (INCORRECT!) give jump velocity.
+	    -- TODO: foot collider
+	    if character.jumping and dy <= 0 then
+	       character.yv = -300
+	    else
+	       character.yv = 0
+	    end
 	 end
       end
    end
