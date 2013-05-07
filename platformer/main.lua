@@ -22,6 +22,7 @@ function love.update(delta)
 
    if _level_state.dead then
       -- Dead, restart current level
+      -- This can happen during "ending". Level still advances.
       _level_state = make_level_state(_levels[current_level])
    elseif _level_state.finished then
       if _game_state ~= "ending" then
