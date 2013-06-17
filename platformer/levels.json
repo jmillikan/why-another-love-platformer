@@ -1,6 +1,7 @@
 [{"platforms":[
     {"y":300,"x":90,"width":400,"height":20},
     {"angle":-0.5,"y":150,"x":100,"width":150,"height":20},
+    {"angle":0.5,"y":150,"x":400,"width":150,"height":20},
     {"angle":1.3,"y":180,"x":220,"width":100,"height":20},
     {"angle":-1.3,"y":180,"x":350,"width":100,"height":20}
     ],

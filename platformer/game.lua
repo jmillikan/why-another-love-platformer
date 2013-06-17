@@ -87,43 +87,18 @@ end
 
 -- Handle collisions wrt a level state
 
--- Take the x/y "shortest" correction given by HC, 
+-- Return 0 if mtv_y is 0
+-- Otherwise, take the x/y "shortest" correction given by HC, 
 -- and convert it into a pure vertical correction
 -- This doesn't give the correct sign.
--- Returns 0 if mtv_y is 0 because atan2 is a sensitive soul.
-function verticalize_correction(mtv_x,mtv_y)
-
-
-   -- No trig necessary?
-   -- (mtv_x / mtv_y) == (correction / mtv_x)
-
+function verticalize_correction(mtv_x, mtv_y)
    if mtv_y == 0 then
       print("mtv_y is 0! Shouldn't be here!")
       return 0
    elseif mtv_x == 0 then
-      return mtv_y
+      return math.abs(mtv_y)
    else
-      return mtv_x * mtv_x / mtv_y
-   end
-
-   if mtv_y == 0 then
-      print("mtv_y is 0! Shouldn't be here!")
-      return 0
-   elseif mtv_x ~= 0 then
-      -- 2pi "works" for moving left, 1 "works" for moving right
-      -- It seems likely I've mixed up mtv_x with dy somewhere, or worse.
-      -- This is guesswork, not algebra - I got no constants the first time I did the "math"
-      local C -- magic constant
-
-      if mtv_x < 0 then
-	 C = 6.28
-      else
-	 C = 1
-      end
-
-      return mtv_y - mtv_x / math.atan2(mtv_y, mtv_x) * C
-   else
-      return mtv_y
+      return math.abs(mtv_y) + math.abs(mtv_x * mtv_x / mtv_y)
    end
 end
 
@@ -156,7 +131,8 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
 	 else
 	    -- Mess with the current first level to get an idea of how broken this is.
 
-	    -- verticalize_correction "works" but is braindamaged
+	    -- This works, but it's braindamaged
+	    -- Someday I'll math so good I only have to use abs once or twice to do this
 	    local dy = match_sign(verticalize_correction(mtv_x, mtv_y), mtv_y)
 
 	    move_game_rect(character, 0, dy)
