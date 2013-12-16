@@ -14,11 +14,12 @@ local step = 5
 
 local current_block_i = 0
 
+-- JSON object representing level
 local level
 
 function read_level()
    level = json.decode(io.read("*all"))
-   level.platforms = level.platforms or {}
+   -- You'll need an existing level for boilerplate...
    level.more_magic = "More magic"
 end
 
@@ -108,6 +109,24 @@ function rotate_block(dir)
    end
 end
 
+function insert_block()
+   table.insert(level.platforms,
+		{ x = pos_x, y = pos_y, width = 200, height = 20 })
+   current_block_i = #level.platforms
+end
+
+function b() 
+   return level.platforms[current_block_i]
+end
+
+function change_width(dir)
+   b().width = b().width + step * dir
+end
+
+function change_height(dir)
+   b().height = b().height + step * dir
+end
+
 function base_keypress(s, k)
    dispatch(k, {
 	       h = {change_pos_x, -step},
@@ -119,7 +138,7 @@ function base_keypress(s, k)
 	       up = {change_pos_y, -step},
 	       right = {change_pos_x, step},
 	       r = {change_ui_state, ui, 'relocate'},
-	       s = {change_ui_state, ui, 'change_step'},
+	       t = {change_ui_state, ui, 'change_step'},
 	       z = {write_and_exit},
 	       escape = {love.event.quit},
 	       n = {next_block},
@@ -127,6 +146,11 @@ function base_keypress(s, k)
 	       m = {move_block},
 	       q = {rotate_block, -1},
 	       e = {rotate_block, 1},
+	       a = {change_width, -1},
+	       d = {change_width, 1},
+	       w = {change_height, -1},
+	       s = {change_height, 1},
+	       i = {insert_block},
 	       })
 end
 
