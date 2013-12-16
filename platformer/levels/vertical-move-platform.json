@@ -1,6 +1,1 @@
-{"platforms":
-  [{"y":300,"x":0,"height":100,"width":100,"angle":0.2},
-   {"angle":-0.5, "y":250,"x":140,"movement":{"endx":260,"endy":250,"t":4,"startx":140,"starty":250},"height":20,"t":0,"width":50},
-   {"y":300,"x":300,"height":100,"width":100}],
-  "character":{"y":100,"x":0,"yv":0,"height":40,"state":"falling","xv":0,"width":20},"end_door":{"y":240,"x":360,"height":60,"width":30},
-  "playfield":{"y":0,"x":0,"height":400,"width":600}}
+{"end_door":{"y":240,"x":360,"height":60,"width":30},"platforms":[{"y":276,"x":19,"height":100,"angle":0.2,"width":100},{"y":176,"x":94,"movement":{"endy":250,"endx":260,"t":4,"startx":94,"starty":176},"height":20,"angle":-0.5,"t":0,"width":50},{"y":300,"x":300,"height":100,"width":100}],"character":{"y":236,"x":74,"yv":0,"height":40,"state":"falling","xv":0,"width":20},"playfield":{"y":0,"x":0,"height":400,"width":600},"more_magic":"More magic"}

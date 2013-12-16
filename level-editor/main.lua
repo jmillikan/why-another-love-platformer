@@ -12,6 +12,9 @@ local pos_y = 0
 
 local step = 5
 
+-- Hack hack hack.
+-- This will be -2/-1/0 for boilerplate objects
+-- values 1+ will be indexes into level.platforms
 local current_block_i = 0
 
 -- JSON object representing level
@@ -63,7 +66,13 @@ function draw_rect(r, color)
 
    love.graphics.rectangle("fill", - r.width / 2,  - r.height / 2, r.width, r.height)
 
+   love.graphics.setColor(255, 0, 255, 100)
+
    love.graphics.pop()
+
+   if r.movement then
+      love.graphics.line(r.movement.startx, r.movement.starty, r.movement.endx, r.movement.endy)
+   end
 end
 
 function base_draw()
@@ -100,12 +109,24 @@ function move_block()
    if not b() then return end
    b().x = pos_x
    b().y = pos_y
+   if b().movement then
+      b().movement.startx = pos_x
+      b().movement.starty = pos_y
+   end
 end
 
 function insert_block()
    table.insert(level.platforms,
 		{ x = pos_x, y = pos_y, width = 200, height = 20 })
    current_block_i = #level.platforms
+end
+
+function delete_block()
+   if current_block_i > 0 and current_block_i <= #level.platforms then
+      table.remove(level.platforms, current_block_i)
+
+      current_block_i = current_block_i - 1
+   end
 end
 
 function b() 
@@ -138,6 +159,28 @@ function rotate_block(dir)
    b().angle = (b().angle or 0) + (step * 2 * math.pi / 360) * dir
 end
 
+-- Only items in level.platforms can move.
+function ensure_movable_b() 
+   if current_block_i > 0 and current_block_i <= #level.platforms then
+      b().movement = b().movement or {startx = b().x, starty = b().y, t = 5, endx = pos_x, endy = pos_y}
+      b().t = b().t or 0 -- For now, this isn't adjustable in the editor.
+      return true
+   end
+end
+
+function move_end_movement()
+   if ensure_movable_b() then
+      b().movement.endx = pos_x
+      b().movement.endy = pos_y
+   end
+end
+
+function set_movement_time()
+   if ensure_movable_b() then
+      b().movement.t = step
+   end
+end
+
 function base_keypress(s, k)
    dispatch(k, {
 	       h = {change_pos_x, -step},
@@ -155,6 +198,9 @@ function base_keypress(s, k)
 	       n = {next_block},
 	       p = {previous_block},
 	       m = {move_block},
+	       [","] = {move_end_movement},
+	       -- Easiest way to create moving blocks: Set pos to endpoint, step to period, and use .
+	       ["."] = {set_movement_time},
 	       q = {rotate_block, -1},
 	       e = {rotate_block, 1},
 	       a = {change_width, -1},
@@ -162,6 +208,7 @@ function base_keypress(s, k)
 	       w = {change_height, -1},
 	       s = {change_height, 1},
 	       i = {insert_block},
+	       u = {delete_block},
 	       })
 end
 
@@ -194,9 +241,12 @@ UI_STATES = {
       end,
       keypressed = function(s, k)
 	 if k == 'return' then
-	    if not pcall(function() step = tonumber(command_s) end) then
-	       print("Bad command string for change_step: " .. command_s)
+	    
+	    local new_step = tonumber(command_s)
+	    if new_step ~= nil then
+	       step = new_step
 	    end
+	    
 	    change_ui_state(ui, 'init')
 	 elseif k == 'escape' then
 	    change_ui_state(ui, 'init')
