@@ -19,6 +19,7 @@ local level
 function read_level()
    level = json.decode(io.read("*all"))
    level.platforms = level.platforms or {}
+   level.more_magic = "More magic, please"
 end
 
 function write_and_exit()
