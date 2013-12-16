@@ -19,34 +19,36 @@ local level
 function read_level()
    level = json.decode(io.read("*all"))
    level.platforms = level.platforms or {}
-   level.more_magic = "More magic, please"
+   level.more_magic = "More magic"
 end
 
 function write_and_exit()
    io.write(json.encode(level))
 
-   os.exit(0)
+   love.event.quit()
 end
 
 -- TODO: Figure out how to share more of this between level editor and platformer
 function draw_level()
    love.graphics.push()
    
-   --   draw_game_rect(level.playfield)
+   draw_rect(level.playfield, {255, 255, 255, 50})
    
    for i = 1, #level.platforms do 
-      draw_platform(level.platforms[i], i == current_block_i)
+      if i == current_block_i then
+	 draw_rect(level.platforms[i], {100, 255, 100, 150})
+      else
+	 draw_rect(level.platforms[i], {255, 255, 255, 100})
+      end
    end
    
-   --_.each(ls.platforms, function(p) p.collider:draw() end)
-   --   draw_game_rect(level.end_door)
-   --   draw_game_rect(level.character)
-   --ls.character.collider:draw()
+   draw_rect(level.end_door, {255, 0, 0, 200})
+   draw_rect(level.character, {0, 0, 255, 200})
    
    love.graphics.pop()
 end   
 
-function draw_platform(r, selected)
+function draw_rect(r, color)
    love.graphics.push()
 
    love.graphics.translate(r.x + r.width / 2, r.y + r.height / 2)
@@ -56,12 +58,7 @@ function draw_platform(r, selected)
    end
 
    -- See "Graphics"
-   love.graphics.setColor(255, 255, 255, 100)
-
-   -- TODO: Elsewhere
-   if selected then
-      love.graphics.setColor(100, 255, 100, 150)
-   end
+   love.graphics.setColor(unpack(color))
 
    love.graphics.rectangle("fill", - r.width / 2,  - r.height / 2, r.width, r.height)
 
@@ -105,19 +102,31 @@ function move_block()
    end
 end
 
+function rotate_block(dir)
+   if current_block_i > 0 and current_block_i <= #level.platforms then
+      level.platforms[current_block_i].angle = (level.platforms[current_block_i].angle or 0) + (step * 2 * math.pi / 360) * dir
+   end
+end
+
 function base_keypress(s, k)
    dispatch(k, {
 	       h = {change_pos_x, -step},
 	       j = {change_pos_y, step}, 
 	       k = {change_pos_y, -step},
 	       l = {change_pos_x, step},
+	       left = {change_pos_x, -step},
+	       down = {change_pos_y, step}, 
+	       up = {change_pos_y, -step},
+	       right = {change_pos_x, step},
 	       r = {change_ui_state, ui, 'relocate'},
 	       s = {change_ui_state, ui, 'change_step'},
 	       z = {write_and_exit},
-	       q = {os.exit, 1},
+	       escape = {love.event.quit},
 	       n = {next_block},
 	       p = {previous_block},
 	       m = {move_block},
+	       q = {rotate_block, -1},
+	       e = {rotate_block, 1},
 	       })
 end
 

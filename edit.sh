@@ -3,7 +3,7 @@
 TMP=`mktemp -p /tmp`
 
 love level-editor < $1 > $TMP 
-if grep -Fq "More magic, please" $TMP
+if grep -Fq "More magic" $TMP
 then
     cat $TMP > $1
 else
