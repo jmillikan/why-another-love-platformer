@@ -26,10 +26,15 @@ function show_text(text, height)
    love.graphics.printf(text, 0, 100 + height, love.graphics.getWidth(), "center")
 end
 
-function load_levels(filename)
-   local contents, length = love.filesystem.read("levels.json")
+function load_levels()
+   local level_files = {
+      "levels/test.json", 
+      "levels/vertical-move-platform.json",
+      "levels/horizontal-move-platform.json",
+      "levels/long.json",
+   }
 
-   return json.decode(contents)
+   return _.map(level_files, _.compose(json.decode, love.filesystem.read))
 end
 
 -- level -> level state

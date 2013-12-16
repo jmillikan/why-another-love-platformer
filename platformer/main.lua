@@ -9,7 +9,7 @@ _levels - Array of loaded level tables
 --]]
 
 function love.load()
-   _levels = load_levels("levels.json")
+   _levels = load_levels()
 
    _game_state = "front"
 end
