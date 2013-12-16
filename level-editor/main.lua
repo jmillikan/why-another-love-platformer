@@ -91,22 +91,15 @@ function next_block()
 end
 
 function previous_block()
-   if current_block_i > 1 then
+   if current_block_i >= -2 then
       current_block_i = current_block_i - 1
    end
 end
 
 function move_block()
-   if current_block_i > 0 and current_block_i <= #level.platforms then
-      level.platforms[current_block_i].x = pos_x
-      level.platforms[current_block_i].y = pos_y
-   end
-end
-
-function rotate_block(dir)
-   if current_block_i > 0 and current_block_i <= #level.platforms then
-      level.platforms[current_block_i].angle = (level.platforms[current_block_i].angle or 0) + (step * 2 * math.pi / 360) * dir
-   end
+   if not b() then return end
+   b().x = pos_x
+   b().y = pos_y
 end
 
 function insert_block()
@@ -116,15 +109,33 @@ function insert_block()
 end
 
 function b() 
-   return level.platforms[current_block_i]
+   if current_block_i > 0 and current_block_i <= #level.platforms then
+      return level.platforms[current_block_i]
+   elseif current_block_i == 0 then
+      return level.character
+   elseif current_block_i == -1 then
+      return level.end_door
+   elseif current_block_i == -2 then
+      return level.playfield
+   else
+      return nil
+   end
 end
 
 function change_width(dir)
+   if not b() then return end
    b().width = b().width + step * dir
 end
 
 function change_height(dir)
+   if not b() then return end
    b().height = b().height + step * dir
+end
+
+-- TODO: Don't allow rotating end_door, playfield, character, etc.
+function rotate_block(dir)
+   if not b() then return end
+   b().angle = (b().angle or 0) + (step * 2 * math.pi / 360) * dir
 end
 
 function base_keypress(s, k)
