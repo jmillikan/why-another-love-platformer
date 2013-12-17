@@ -1,0 +1,1 @@
+{"end_door":{"y":181,"x":360,"height":60,"width":30},"platforms":[{"y":300,"x":39,"height":100,"width":120},{"y":241,"x":300,"height":200,"width":120},{"y":261,"x":200,"height":20,"width":60}],"character":{"y":260,"x":79,"yv":0,"height":40,"state":"falling","xv":0,"width":20},"playfield":{"y":0,"x":0,"height":350,"width":435},"more_magic":"More magic"}
