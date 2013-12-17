@@ -28,10 +28,12 @@ end
 
 function load_levels()
    local level_files = {
-      "levels/test.json", 
-      "levels/steep.json",
       "levels/first.json",
+      "levels/test.json", 
       "levels/long.json",
+      "levels/push2.json",
+      "levels/push.json",
+      "levels/horizontal.json",
       "levels/multiple-platforms.json",
    }
 
@@ -250,10 +252,10 @@ function advance_level_state(ls, delta)
    end
    
    -- cap x velocity
-   if character.xv > 100 then
-      character.xv = 100
-   elseif character.xv < -100 then
-      character.xv = -100
+   if character.xv > 120 then
+      character.xv = 120
+   elseif character.xv < -120 then
+      character.xv = -120
    end
    
    -- Use constants and delta to modify y velocity
