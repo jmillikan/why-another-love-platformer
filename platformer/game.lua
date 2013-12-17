@@ -28,8 +28,9 @@ end
 
 function load_levels()
    local level_files = {
-      "levels/first.json",
       "levels/test.json", 
+      "levels/steep.json",
+      "levels/first.json",
       "levels/long.json",
       "levels/multiple-platforms.json",
    }
@@ -114,6 +115,19 @@ function match_sign(x, sign)
    return sign >= 0 and math.abs(x) or -math.abs(x)
 end
 
+-- Ugh, get the original game object from a collider object
+-- Only handles platforms
+-- Eventually put a hack property on the collider or something
+function shape_from_collider(ls, shape)
+   for platform in _.iter(ls.platforms) do
+      if platform.collider == shape then
+	 return platform
+      end
+   end
+
+   error("Couldn't find platform in reverse lookup")
+end
+
 function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
    local character = ls.character
    local end_door = ls.end_door
@@ -132,17 +146,18 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
       elseif shape_b == playfield.collider then
 
       else -- platform
-	 -- HACK HACK HACK: This prevents some jitters related to multiple-platform collisions.
 
+	 -- Note: This and the character movement stuff in the main update
+	 -- need to be together, probably...
+	 -- An accumulated "contribution to movement" at the end of update or something
+	 local platform_motion = platform_speed(shape_from_collider(ls, shape_b)) * dt
+
+	 -- HACK HACK HACK: This "window" for mtv_y (instead of 0)
+	 -- prevents some jitters related to multiple-platform collisions.
 	 -- See note in next case
 	 if mtv_y <= 0.2 and mtv_y >= -0.2 then
-	    move_game_rect(character, mtv_x, 0)
+	    move_game_rect(character, mtv_x + platform_motion, 0)
 	 else
-	    -- Mess with the current first level to get an idea of how broken this is.
-
-	    -- This works, but it's braindamaged
-	    -- Someday I'll math so good I only have to use abs once or twice to do this
-
 	    -- HACK NOTE:
 	    -- Either the math in verticalize is messed up or I'm hitting some kind of 
 	    -- self inflicted rounding error. On very small mtv_y, related somehow to 
@@ -151,9 +166,8 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
 	    -- So the large tolerance in mtv_y above smooths that out, and 
 	    -- the user probably won't notice < 1 pixel movements disappearing...
 	    local dy = match_sign(verticalize_correction(mtv_x, mtv_y), mtv_y)
-
 	    
-	    move_game_rect(character, 0, dy)
+	    move_game_rect(character, 0 + platform_motion, dy)
 	    
 	    -- If attempting to jump on a downward collision (INCORRECT!) give jump velocity.
 	    -- TODO: foot collider instead of this nonsense
@@ -189,6 +203,32 @@ function stop_collision_level_state(ls, dt, shape_a, shape_b)
    end
 end
 
+-- x speed of a platform (moving or not) in px/s
+function platform_speed(platform)
+   local t, startx, endx
+
+   if platform.movement then
+	 t = platform.t % platform.movement.t
+	 startx = platform.movement.startx
+	 endx = platform.movement.endx
+
+	 -- for some stupid reason I'm storing the total back-and-forth time...
+	 segment_t = platform.movement.t / 2
+	 
+	 if t < segment_t then
+	    return (endx - startx) / segment_t
+	 else
+	    return (startx - endx) / segment_t
+	 end
+	 
+	 place_game_rect(platform, 
+			 (startx * (1 - ratio_done) + endx * ratio_done),
+			 (starty * (1 - ratio_done) + endy * ratio_done))
+   else
+      return 0
+   end
+end
+
 function advance_level_state(ls, delta)
    -- TODO: Normalize delta using loop here.
 
@@ -205,6 +245,7 @@ function advance_level_state(ls, delta)
    elseif character.xv < -20 then
       character.xv = character.xv + 20
    else
+      -- TODO: Integrate this with platform friction
       character.xv = 0
    end
    
