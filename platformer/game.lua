@@ -150,8 +150,9 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
 	 -- Note: This and the character movement stuff in the main update
 	 -- need to be together, probably...
 	 -- An accumulated "contribution to movement" at the end of update or something
-	 local platform_motion = platform_speed(shape_from_collider(ls, shape_b)) * dt
-
+	 local platform_s = platform_speed(shape_from_collider(ls, shape_b))
+	 local platform_motion = platform_s * dt
+	 
 	 -- HACK HACK HACK: This "window" for mtv_y (instead of 0)
 	 -- prevents some jitters related to multiple-platform collisions.
 	 -- See note in next case
@@ -179,6 +180,7 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
 	       character.yv = 50
 	       -- TODO: Extract platform dx and modify character.xy
 	    else --  mtv_y > 0 (hitting head) - stop upward motion without halting fall
+	       -- Somewhere in here is the "fast drop" when pushing against the underside of slopes.
 	       character.yv = math.max(character.yv, 0)
 	    end
 
@@ -203,27 +205,25 @@ function stop_collision_level_state(ls, dt, shape_a, shape_b)
    end
 end
 
--- x speed of a platform (moving or not) in px/s
+-- x,y speed of a platform (moving or not) in px/s
 function platform_speed(platform)
-   local t, startx, endx
+   local t, forwardx, forwardy
 
    if platform.movement then
-	 t = platform.t % platform.movement.t
-	 startx = platform.movement.startx
-	 endx = platform.movement.endx
-
-	 -- for some stupid reason I'm storing the total back-and-forth time...
-	 segment_t = platform.movement.t / 2
-	 
-	 if t < segment_t then
-	    return (endx - startx) / segment_t
-	 else
-	    return (startx - endx) / segment_t
-	 end
-	 
-	 place_game_rect(platform, 
-			 (startx * (1 - ratio_done) + endx * ratio_done),
-			 (starty * (1 - ratio_done) + endy * ratio_done))
+      local m = platform.movement
+      t = platform.t % m.t
+      
+      -- for some stupid reason I'm storing the total back-and-forth time...
+      segment_t = m.t / 2
+      
+      forwardx = (m.endx - m.startx) / segment_t
+      forwardy = (m.endy - m.starty) / segment_t
+      
+      if t < segment_t then
+	 return forwardx, forwardy
+      else
+	 return -forwardx, -forwardy
+      end
    else
       return 0
    end
