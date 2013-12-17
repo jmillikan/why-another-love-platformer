@@ -28,11 +28,10 @@ end
 
 function load_levels()
    local level_files = {
-      "levels/multiple-platforms.json",
+      "levels/first.json",
       "levels/test.json", 
-      "levels/vertical-move-platform.json",
-      "levels/horizontal-move-platform.json",
       "levels/long.json",
+      "levels/multiple-platforms.json",
    }
 
    return _.map(level_files, _.compose(json.decode, love.filesystem.read))
@@ -104,7 +103,9 @@ function verticalize_correction(mtv_x, mtv_y)
    elseif mtv_x == 0 then
       return math.abs(mtv_y)
    else
-      return math.abs(mtv_y) + math.abs(mtv_x * mtv_x / mtv_y)
+      local v = math.abs(mtv_y) + math.abs(mtv_x * mtv_x / mtv_y)
+
+      return v
    end
 end
 
@@ -122,7 +123,6 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
       start_collision_level_state(ls, dt, shape_b, shape_a, -mtv_x, -mtv_y)
    elseif shape_a == character.collider then
 
-
       if shape_b == end_door.collider then
 	 -- May happen multiple times
 	 ls.finished = true
@@ -132,15 +132,27 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
       elseif shape_b == playfield.collider then
 
       else -- platform
-	 if mtv_y == 0 then
+	 -- HACK HACK HACK: This prevents some jitters related to multiple-platform collisions.
+
+	 -- See note in next case
+	 if mtv_y <= 0.2 and mtv_y >= -0.2 then
 	    move_game_rect(character, mtv_x, 0)
 	 else
 	    -- Mess with the current first level to get an idea of how broken this is.
 
 	    -- This works, but it's braindamaged
 	    -- Someday I'll math so good I only have to use abs once or twice to do this
+
+	    -- HACK NOTE:
+	    -- Either the math in verticalize is messed up or I'm hitting some kind of 
+	    -- self inflicted rounding error. On very small mtv_y, related somehow to 
+	    -- flat multi-platform walking situations, the vertical correction ends up 
+	    -- macroscopic, 5 pixels +. (Normal values for walking are < 1.)
+	    -- So the large tolerance in mtv_y above smooths that out, and 
+	    -- the user probably won't notice < 1 pixel movements disappearing...
 	    local dy = match_sign(verticalize_correction(mtv_x, mtv_y), mtv_y)
 
+	    
 	    move_game_rect(character, 0, dy)
 	    
 	    -- If attempting to jump on a downward collision (INCORRECT!) give jump velocity.
@@ -240,7 +252,10 @@ function advance_level_state(ls, delta)
    end
 
    -- TODO: Collect collision events and resolve in a manner consistent with character movement to prevent platform penetration...
+   
+   debug_info("=== Begin collider update")
    ls.collider:update(delta)
+   debug_info("=== End collider update")
 end
 
 function draw_level_state(ls)
