@@ -28,6 +28,7 @@ end
 
 function load_levels()
    local level_files = {
+      "levels/multiple-platforms.json",
       "levels/test.json", 
       "levels/vertical-move-platform.json",
       "levels/horizontal-move-platform.json",
