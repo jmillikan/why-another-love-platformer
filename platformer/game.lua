@@ -28,13 +28,13 @@ end
 
 function load_levels()
    local level_files = {
-      "levels/first.json",
       "levels/test.json", 
+      "levels/multiple-platforms.json",
+      "levels/first.json",
       "levels/long.json",
       "levels/push2.json",
       "levels/push.json",
       "levels/horizontal.json",
-      "levels/multiple-platforms.json",
    }
 
    return _.map(level_files, _.compose(json.decode, love.filesystem.read))
@@ -141,53 +141,67 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
 
       if shape_b == end_door.collider then
 	 -- May happen multiple times
+	 -- Shut down player forces, but keep game running until halted from the outside.
 	 ls.finished = true
 	 character.running_left = false
 	 character.running_right = false
 	 character.jumping = false
       elseif shape_b == playfield.collider then
 
-      else -- platform
+      else
+	 -- platform collision - this handle all hits of character on platform, including walking
 
-	 -- Note: This and the character movement stuff in the main update
-	 -- need to be together, probably...
-	 -- An accumulated "contribution to movement" at the end of update or something
-	 local platform_s = platform_speed(shape_from_collider(ls, shape_b))
+	 -- TODO: Limit "climbing" speed, or maximum climbing angle, or both
+	 -- TODO: There's still a bit of a "catch" where angled platforms meet, e.g. in test.json
+	 local platform_s, platform_yv = platform_speed(shape_from_collider(ls, shape_b))
 	 local platform_motion = platform_s * dt
-	 
-	 -- HACK HACK HACK: This "window" for mtv_y (instead of 0)
+	 local platform_dy = platform_yv * dt
+
+	 -- The final y and x motion we're going to do to the character here.
+	 local dy, dx = 0, 0
+	 -- HC provides a displacement vector which, if followed naively, creates "falling" down
+	 -- slight inclines. "Undo" the collision by instead displacing the character vertically.
+	 -- Note: The character has *already* gone through the x motion, leading to the collision,
+	 -- so this retains 100% of walking speed on all inclines.
+
+
+	 -- HACK: This "window" for mtv_y (instead of 0)
 	 -- prevents some jitters related to multiple-platform collisions.
-	 -- See note in next case
+	 -- The approach I'm taking fundamentally doesn't work in that case, 
+	 -- But this masks it in specific circumstances...
+
+	 -- On very small mtv_y, related somehow to 
+	 -- flattish multi-platform walking situations, the vertical correction ends up 
+	 -- macroscopic, 5 pixels +. (Normal values for walking are < 1.)
+	 -- So the large tolerance in mtv_y above smooths that out.
+	 -- But this causes dy to "bounce" noticably on steep 
+	 -- platforms due to the uncorrected dy. No plan on how to fix that.
+
 	 if mtv_y <= 0.2 and mtv_y >= -0.2 then
-	    move_game_rect(character, mtv_x + platform_motion, 0)
+	    dy = mtv_y
 	 else
-	    -- HACK NOTE:
-	    -- Either the math in verticalize is messed up or I'm hitting some kind of 
-	    -- self inflicted rounding error. On very small mtv_y, related somehow to 
-	    -- flat multi-platform walking situations, the vertical correction ends up 
-	    -- macroscopic, 5 pixels +. (Normal values for walking are < 1.)
-	    -- So the large tolerance in mtv_y above smooths that out, and 
-	    -- the user probably won't notice < 1 pixel movements disappearing...
-	    local dy = match_sign(verticalize_correction(mtv_x, mtv_y), mtv_y)
-	    
-	    move_game_rect(character, 0 + platform_motion, dy)
-	    
-	    -- If attempting to jump on a downward collision (INCORRECT!) give jump velocity.
-	    -- TODO: foot collider instead of this nonsense
-	    if character.jumping and mtv_y <= 0 then
+	    dy = match_sign(verticalize_correction(mtv_x, mtv_y), mtv_y)
+	 end
+
+	 if dy < 0 then -- displaced up - stepping
+	    if character.jumping then 
 	       character.yv = -300
-	    elseif mtv_y <= 0 then -- Feet touched - stop falling.
-	       -- "Zero"
-	       -- Actually, slight fall for next tick - Smooth walking on slight inclines and sufficiently slow falling platforms.
+	    else
 	       character.yv = 50
-	       -- TODO: Extract platform dx and modify character.xy
-	    else --  mtv_y > 0 (hitting head) - stop upward motion without halting fall
-	       -- Somewhere in here is the "fast drop" when pushing against the underside of slopes.
-	       character.yv = math.max(character.yv, 0)
 	    end
 
-	    -- TODO: Limit "climbing" speed, or maximum climbing angle, or both
+	    dx = platform_motion
+	 elseif dy > 0 then -- displaced down - drop and stop horizontal motion
+	    character.yv = math.max(character.yv, platform_dy + 50) -- "bounce" slightly relative to platform
+	    character.xv = 0
+	    dx = mtv_x
+	 else -- dy == 0
+	    -- "Side" collision - corner, edge
+	    character.xv = 0
+	    dx = mtv_x
 	 end
+
+	 move_game_rect(character, dx, dy)
       end
    end
 end
@@ -227,7 +241,7 @@ function platform_speed(platform)
 	 return -forwardx, -forwardy
       end
    else
-      return 0
+      return 0, 0
    end
 end
 
@@ -303,14 +317,12 @@ end
 
 function draw_level_state(ls)
    love.graphics.push()
-   
+
    love.graphics.translate(ls.screenx, ls.screeny)
    draw_game_rect(ls.playfield)
    _.each(ls.platforms, draw_game_rect)
-   --_.each(ls.platforms, function(p) p.collider:draw() end)
    draw_game_rect(ls.end_door)
    draw_game_rect(ls.character)
-   --ls.character.collider:draw()
    
    love.graphics.pop()
 end   
