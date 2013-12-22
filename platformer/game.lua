@@ -22,15 +22,11 @@ rect description: A table describing a game rectangle as (top-left corner) .x/.y
 level: A table of rect descriptions called character (must not have an angle), end_door, playfield, and a list of "platforms" with optional extra data for movement. See "levels.json".
 --]]
 
-function show_text(text, height)
-   love.graphics.printf(text, 0, 100 + height, love.graphics.getWidth(), "center")
-end
-
 function load_levels()
    local level_files = {
-      "levels/test.json", 
-      "levels/multiple-platforms.json",
+      --"levels/test.json", 
       "levels/first.json",
+      "levels/multiple-platforms.json",
       "levels/long.json",
       "levels/push2.json",
       "levels/push.json",
@@ -191,7 +187,6 @@ function resolve_platform_collision(c, multiple)
    -- TODO: Instead of this mess, learn some math and modify HC
 
    if multiple and mtv_y <= 0.2 and mtv_y >= -0.2 then
-      print("Multiple collisions - " .. character.yv)
       dy = mtv_y
    elseif (not multiple) and mtv_y <= 0.01 and mtv_y >= -0.01 then -- HACK: Apply larger window only on known multiple collisions
       dy = 0
