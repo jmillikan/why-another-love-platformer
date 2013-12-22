@@ -130,6 +130,8 @@ function shape_from_collider(ls, shape)
    error("Couldn't find platform in reverse lookup")
 end
 
+local platform_collisions
+
 function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
    local character = ls.character
    local end_door = ls.end_door
@@ -154,56 +156,70 @@ function start_collision_level_state(ls, dt, shape_a, shape_b, mtv_x, mtv_y)
 	 -- TODO: Limit "climbing" speed, or maximum climbing angle, or both
 	 -- TODO: There's still a bit of a "catch" where angled platforms meet, e.g. in test.json
 	 local platform_s, platform_yv = platform_speed(shape_from_collider(ls, shape_b))
-	 local platform_motion = platform_s * dt
-	 local platform_dy = platform_yv * dt
 
-	 -- The final y and x motion we're going to do to the character here.
-	 local dy, dx = 0, 0
-	 -- HC provides a displacement vector which, if followed naively, creates "falling" down
-	 -- slight inclines. "Undo" the collision by instead displacing the character vertically.
-	 -- Note: The character has *already* gone through the x motion, leading to the collision,
-	 -- so this retains 100% of walking speed on all inclines.
-
-
-	 -- HACK: This "window" for mtv_y (instead of 0)
-	 -- prevents some jitters related to multiple-platform collisions.
-	 -- The approach I'm taking fundamentally doesn't work in that case, 
-	 -- But this masks it in specific circumstances...
-
-	 -- On very small mtv_y, related somehow to 
-	 -- flattish multi-platform walking situations, the vertical correction ends up 
-	 -- macroscopic, 5 pixels +. (Normal values for walking are < 1.)
-	 -- So the large tolerance in mtv_y above smooths that out.
-	 -- But this causes dy to "bounce" noticably on steep 
-	 -- platforms due to the uncorrected dy. No plan on how to fix that.
-
-	 if mtv_y <= 0.2 and mtv_y >= -0.2 then
-	    dy = mtv_y
-	 else
-	    dy = match_sign(verticalize_correction(mtv_x, mtv_y), mtv_y)
-	 end
-
-	 if dy < 0 then -- displaced up - stepping
-	    if character.jumping then 
-	       character.yv = -300
-	    else
-	       character.yv = 50
-	    end
-
-	    dx = platform_motion
-	 elseif dy > 0 then -- displaced down - drop and stop horizontal motion
-	    character.yv = math.max(character.yv, platform_dy + 50) -- "bounce" slightly relative to platform
-	    character.xv = 0
-	    dx = mtv_x
-	 else -- dy == 0
-	    -- "Side" collision - corner, edge
-	    character.xv = 0
-	    dx = mtv_x
-	 end
-
-	 move_game_rect(character, dx, dy)
+	 table.insert(platform_collisions, {platform_s, platform_yv, mtv_x, mtv_y, dt, character})
       end
    end
+end
+
+function resolve_platform_collision(c, multiple) 
+   platform_s, platform_yv, mtv_x, mtv_y, dt, character = unpack(c)
+
+   local platform_motion = platform_s * dt
+   local platform_dy = platform_yv * dt
+   
+   -- The final y and x motion we're going to do to the character here.
+   local dy, dx = 0, 0
+   -- HC provides a displacement vector which, if followed naively, creates "falling" down
+   -- slight inclines. "Undo" the collision by instead displacing the character vertically.
+   -- Note: The character has *already* gone through the x motion, leading to the collision,
+   -- so this retains 100% of walking speed on all inclines.
+   
+   
+   -- HACK: This "window" for mtv_y (instead of 0)
+   -- prevents some jitters related to multiple-platform collisions.
+   -- The approach I'm taking fundamentally doesn't work in that case, 
+   -- But this masks it in specific circumstances...
+   
+   -- On very small mtv_y, related somehow to 
+   -- flattish multi-platform walking situations, the vertical correction ends up 
+   -- macroscopic, 5 pixels +. (Normal values for walking are < 1.)
+   -- So the large tolerance in mtv_y above smooths that out.
+   -- But this causes dy to "bounce" noticably on steep 
+   -- platforms due to the uncorrected dy.
+
+   -- TODO: Instead of this mess, learn some math and modify HC
+
+   if multiple and mtv_y <= 0.2 and mtv_y >= -0.2 then
+      print("Multiple collisions - " .. character.yv)
+      dy = mtv_y
+   elseif (not multiple) and mtv_y <= 0.01 and mtv_y >= -0.01 then -- HACK: Apply larger window only on known multiple collisions
+      dy = 0
+   else
+      dy = match_sign(verticalize_correction(mtv_x, mtv_y), mtv_y)
+   end
+   
+   if dy < 0 then -- displaced up - stepping
+      if character.jumping then 
+	 character.yv = -300
+      else
+	 character.yv = 50
+      end
+      
+      dx = platform_motion
+   elseif dy > 0 then -- displaced down - drop and stop horizontal motion
+      character.yv = math.max(character.yv, platform_dy + 50) -- "bounce" slightly relative to platform
+      character.xv = 0
+      dx = mtv_x
+   else -- dy == 0
+      -- "Side" collision - corner, edge
+      character.xv = 0
+      dx = mtv_x
+   end
+
+   debug_info("Final move: " .. dx .. "," .. dy)
+   
+   move_game_rect(character, dx, dy)
 end
 
 function stop_collision_level_state(ls, dt, shape_a, shape_b)
@@ -310,9 +326,27 @@ function advance_level_state(ls, delta)
 
    -- TODO: Collect collision events and resolve in a manner consistent with character movement to prevent platform penetration...
    
-   debug_info("=== Begin collider update")
+   --debug_info("=== Begin collider update")
+   
+   platform_collisions = {}
+
+   -- Resolves end door and gathers platform collisions
    ls.collider:update(delta)
-   debug_info("=== End collider update")
+
+   -- TODO: Special behavior on multiple collisions
+   if #platform_collisions > 0 then
+      resolve_platform_collision(platform_collisions[1], #platform_collisions > 1)
+   end
+
+   if #platform_collisions > 1 then
+      resolve_platform_collision(platform_collisions[2], #platform_collisions > 1)
+   end
+      
+   --   for c in _.iter(platform_collisions) do
+     -- resolve_platform_collision(c, #platform_collisions > 1)
+   --end
+
+   --debug_info("=== End collider update")
 end
 
 function draw_level_state(ls)
